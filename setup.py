@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="simplebeep-leberwurscht",
+    name="simplebeep",
     version="0.0.1",
     author="Leberwurscht",
     author_email="leberwurscht@hoegners.de",
