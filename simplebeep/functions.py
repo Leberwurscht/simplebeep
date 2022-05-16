@@ -68,6 +68,47 @@ def play_ndarray_gst(y, sample_rate):
 
   mainloop.run()
 
+def read_ndarrays_gst(sample_rate, device=None):
+  """
+  example:
+    q, _ = simplebeep.functions.read_ndarrays_gst(44100)
+    while True:
+      print(q.get())
+      q.task_done()
+
+  setting device="alsa_output.pci-0000_00_1b.0.analog-stereo.monitor" will make it read from monitor instead of microphone
+  """
+
+  import gi, sys, queue
+  gi.require_version('Gst', '1.0')
+  from gi.repository import Gst, GObject, GstApp
+
+  Gst.init(None)
+
+  q = queue.Queue()
+
+  pipeline = Gst.parse_launch("pulsesrc name=pulsesrc ! audioconvert ! audio/x-raw,format={},rate={},channels=1,layout=interleaved ! appsink name=sink emit-signals=true".format("S16LE" if sys.byteorder=="little" else "S16BE", sample_rate))
+
+  if device is not None:
+    pipeline.get_by_name("pulsesrc").set_property("device", device)
+
+  def sample_callback(app_sink):
+    buf = app_sink.pull_sample().get_buffer()
+
+    success, map_info = buf.map(Gst.MapFlags.READ)
+    arr = np.ndarray(shape=(buf.get_size()//2,), dtype=np.int16, buffer=map_info.data)
+    buf.unmap(map_info)
+
+    q.put(arr)
+
+    return False
+
+  pipeline.get_by_name("sink").connect("new-sample", sample_callback)
+
+  pipeline.set_state(Gst.State.PLAYING)
+
+  return q, pipeline
+
 try:
   import gi, sys
   gi.require_version('Gst', '1.0')
